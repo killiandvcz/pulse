@@ -1,6 +1,6 @@
 {
   "name": "@killiandvcz/pulse",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A lightweight event emitter with pattern matching support",
   "main": "index.js",
   "type": "module",
@@ -8,7 +8,12 @@
     "models/*",
     "index.js"
   ],
-  "keywords": ["events", "emitter", "pattern-matching", "async"],
+  "keywords": [
+    "events",
+    "emitter",
+    "pattern-matching",
+    "async"
+  ],
   "author": "Killian Di Vincenzo",
   "license": "MIT",
   "repository": {
