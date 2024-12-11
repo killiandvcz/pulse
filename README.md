@@ -9,7 +9,10 @@ A lightweight, pattern-matching event emitter for JavaScript with async support 
 - 🔄 Middleware support for event preprocessing
 - 🎨 Clean and intuitive API
 - 📦 Zero dependencies
-- 💪 Full TypeScript support via JSDoc
+- 📝 Type Checking
+  - JSDoc type annotations
+  - IDE autocompletion support
+  - Basic type inference
 
 ## Installation
 
