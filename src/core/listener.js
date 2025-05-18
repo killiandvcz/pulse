@@ -2,7 +2,7 @@
 
 /**
 * @typedef {import('./pulse').Pulse} Pulse
-* @typedef {String} Topic
+* @typedef {String} Pattern
 */
 
 /**
@@ -17,11 +17,11 @@
 export class Listener {
     /** 
     * @param {import('./pulse').Pulse} pulse
-    * @param {Topic} topic
+    * @param {Pattern} pattern
     */
-    constructor(pulse, topic, callback, options) {
+    constructor(pulse, pattern, callback, options) {
         this.pulse = pulse;
-        this.topic = topic;
+        this.pattern = pattern;
         this.#callback = callback;
         this.options = options;
         
@@ -59,11 +59,11 @@ export class Listener {
         if (this.timeout) {
             clearTimeout(this.timeout);
         }
-        const listeners = this.pulse.listeners.get(this.topic).filter(listener => listener !== this);
+        const listeners = this.pulse.listeners.get(this.pattern).filter(listener => listener !== this);
         if (listeners.length === 0) {
-            this.pulse.listeners.delete(this.topic);
+            this.pulse.listeners.delete(this.pattern);
         } else {
-            this.pulse.listeners.set(this.topic, listeners);
+            this.pulse.listeners.set(this.pattern, listeners);
         }
     }
 }

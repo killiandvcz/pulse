@@ -94,7 +94,7 @@ export class Pulse {
                     patternString += '\\:';
                     i++;
                 } else if (key[i] === '*' && key[i+1] === '*') {
-                    patternString += '(.*)';
+                    patternString += '((?:[^:]*(?:\\:[^:]*)*)?)'
                     i += 2;
                 } else if (key[i] === '*') {
                     patternString += '([^:]*)';
@@ -106,7 +106,8 @@ export class Pulse {
             }
             
             const pattern = new RegExp(`^${patternString}$`);
-            return pattern.test(topic);
+            const test = pattern.test(topic);
+            return test;
         }).map(key => this.listeners.get(key)).flat();
         
         if (listeners.length === 0) {
@@ -133,7 +134,8 @@ export class Pulse {
                 
                 return event;
             } catch (err) {
-                if (!event.err) throw event.error(err);
+                if (!event.err) event.error(err);
+                return event;
             }
         });
         
@@ -151,9 +153,13 @@ export class Pulse {
         return topicRegex.test(topic);
     }
     
-    off(topic) {
-        if (this.listeners.has(topic)) {
-            this.listeners.delete(topic);
+    /**
+    * Supprime un listener pour un pattern donné
+    * @param {string} pattern
+    */
+    off(pattern) {
+        if (this.listeners.has(pattern)) {
+            this.listeners.delete(pattern);
         }
     }
     
