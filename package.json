@@ -1,6 +1,25 @@
 {
   "name": "@killiandvcz/pulse",
   "module": "src/index.js",
+  "description": "A powerful, lightweight event system with pattern matching, middleware, and timeout support",
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "events",
+    "pubsub",
+    "middleware",
+    "timeout",
+    "pattern-matching"
+  ],
+  "author": "Killian de Villeroche",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/killiandvcz/pulse.git"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.js"
