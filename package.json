@@ -1,0 +1,11 @@
+{
+  "name": "@killiandvcz/pulse",
+  "module": "src/index.js",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
