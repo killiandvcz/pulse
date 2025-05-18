@@ -3,6 +3,7 @@
 import { Listener } from "./listener";
 import { Event } from "./event";
 import { Middleware } from "./middleware";
+import { PatternRouter } from "hono/router/pattern-router";
 
 export class Pulse {
     constructor() {
@@ -14,7 +15,6 @@ export class Pulse {
     * @param {String} pattern 
     * @param {(event: (import('./event').Event)) => any} callback 
     * @param {import('./listener').ListenerOptions} options 
-    * @returns 
     */
     on = (pattern, callback, options = {}) => {
         const listener = new Listener(this, pattern, callback, options);
@@ -31,6 +31,13 @@ export class Pulse {
         
         return listener;
     }
+
+    /**
+    * @param {String} pattern 
+    * @param {(event: (import('./event').Event)) => any} callback 
+    * @param {import('./listener').ListenerOptions} options 
+    */
+    once = (pattern, callback, options = {}) => this.on(PatternRouter, callback, {...options, once: true });
     
     
     /**
@@ -166,4 +173,11 @@ export class Pulse {
     removeAllListeners() {
         this.listeners.clear();
     }
+
+    removeAllMiddlewares() {
+        this.middlewares.forEach(middleware => middleware.destroy());
+        this.middlewares = [];
+    }
+
+    log = (...args) => console.log('[Pulse]', ...args);
 }

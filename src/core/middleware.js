@@ -60,4 +60,14 @@ export class Middleware {
         const pattern = new RegExp(`^${patternString}$`);
         return pattern.test(topic);
     }
+
+    destroy() {
+        this.pulse.middlewares = this.pulse.middlewares.filter(middleware => middleware !== this);
+        this.pulse = null;
+        this.pattern = null;
+        this.callback = null;
+        this.destroy = () => {
+            throw new Error('Middleware already destroyed');
+        };
+    }
 }
