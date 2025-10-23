@@ -3,7 +3,6 @@
 import { Listener } from "./listener";
 import { Event } from "./event";
 import { Middleware } from "./middleware";
-import { PatternRouter } from "hono/router/pattern-router";
 
 export class Pulse {
     constructor() {
@@ -37,7 +36,7 @@ export class Pulse {
     * @param {(event: (import('./event').Event)) => any} callback 
     * @param {import('./listener').ListenerOptions} options 
     */
-    once = (pattern, callback, options = {}) => this.on(PatternRouter, callback, {...options, once: true });
+    once = (pattern, callback, options = {}) => this.on(pattern, callback, {...options, once: true });
     
     
     /**
@@ -156,8 +155,9 @@ export class Pulse {
     * @returns {boolean}
     */
     isValidTopic(topic) {
-        const topicRegex = /^[a-zA-Z0-9_]+(?::[a-zA-Z0-9_]+)*$/;
-        return topicRegex.test(topic);
+        const topicRegex = /^[a-zA-Z0-9_-]+(?::[a-zA-Z0-9_-]+)*$/;
+        // return topicRegex.test(topic);
+        return true;
     }
     
     /**

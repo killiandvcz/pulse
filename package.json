@@ -1,9 +1,11 @@
 {
   "name": "@killiandvcz/pulse",
-  "module": "src/index.js",
+  "version": "1.1.0",
   "description": "A powerful, lightweight event system with pattern matching, middleware, and timeout support",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
   "files": [
-    "src/",
+    "dist/",
     "README.md",
     "LICENSE"
   ],
@@ -14,7 +16,17 @@
     "timeout",
     "pattern-matching"
   ],
-  "author": "Killian de Villeroche",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "bun build src/index.js --outdir dist --target node --minify",
+    "generate-types": "tsc --project ./tsc/tsconfig.json",
+    "prepublishOnly": "npm run clean && npm run build && npm run generate-types",
+    "release:alpha": "npm version prerelease && npm publish --tag alpha",
+    "release:stable": "npm version major && npm publish",
+    "release:patch": "npm version patch && npm publish --tag patch",
+    "release:minor": "npm version minor && npm publish --tag minor"
+  },
+  "author": "Killian Di Vincenzo",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -22,7 +34,6 @@
   },
   "type": "module",
   "exports": {
-    ".": "./src/index.js"
-  },
-  "version": "1.1.0"
+    ".": "./dist/index.js"
+  }
 }
