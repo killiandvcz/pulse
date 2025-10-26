@@ -11,16 +11,16 @@
 
 /**
 * @callback MiddlewareCallback
-* @param {Event} event
+* @param {import('./listener').ListenerContext} context
 * @param {NextCallback} next
-* @returns {Promise<Event>}
+* @returns {Promise<any>}
 */
 
 export class Middleware {
     /**
     * @param {import('./pulse').Pulse} pulse
     * @param {String} pattern
-    * @param {(event: (import('./event').Event), next: NextCallback) => any} callback
+    * @param {MiddlewareCallback} callback
     */
     constructor(pulse, pattern, callback) {
         this.pulse = pulse;
@@ -29,12 +29,10 @@ export class Middleware {
     }
     
     /**
-    * Vérifie si ce middleware doit être appliqué à un topic
     * @param {string} topic 
     * @returns {boolean}
     */
     matches(topic) {
-        // On réutilise la même logique de matching que dans pulse.emit
         let patternString = '';
         let i = 0;
         
