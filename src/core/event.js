@@ -25,6 +25,8 @@ export class Event {
          * @type {Result[]}
          */
         this.results = [];
+        
+        this.context = new Map();
     }
 
     /**
@@ -45,5 +47,46 @@ export class Event {
         const result = new Result(this, err, { error: true });
         this.results.push(result);
         return result;
+    }
+
+
+    /**
+     * Set a value in the event context.
+     * @param {any} key 
+     * @param {any} value 
+     */
+    set(key, value) {
+        this.context.set(key, value);
+    }
+
+    /**
+     * Get a value from the event context.
+     * @param {any} key 
+     * @returns 
+     */
+    get(key) {
+        return this.context.get(key);
+    }
+
+    /**
+     * Check if a key exists in the event context.
+     * @param {any} key 
+     * @returns {boolean}
+     */
+    has(key) {
+        return this.context.has(key);
+    }
+
+    /**
+     * Delete a key from the event context.
+     * @param {any} key 
+     * @returns {boolean}
+     */
+    delete(key) {
+        return this.context.delete(key);
+    }
+
+    clear() {
+        this.context.clear();
     }
 }

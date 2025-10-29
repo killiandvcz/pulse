@@ -24,8 +24,8 @@
     "prepublishOnly": "npm run clean && npm run build && npm run generate-types",
     "release:alpha": "npm version prerelease && npm publish --tag alpha",
     "release:stable": "npm version major && npm publish",
-    "release:patch": "npm version patch && npm publish --tag patch",
-    "release:minor": "npm version minor && npm publish --tag release"
+    "release:patch": "npm version patch && npm publish",
+    "release:minor": "npm version minor && npm publish --tag latest"
   },
   "author": "Killian Di Vincenzo",
   "license": "MIT",
