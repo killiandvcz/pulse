@@ -63,7 +63,7 @@ export class Pulse {
     }
 
     /**
-     * @param {import('./event').Event} event 
+     * @param {import('./event').PulseEvent} event 
      * @param {import('./listener').Listener} listener
      */
     async applyMiddlewaresToListener(event, listener) {
@@ -129,7 +129,9 @@ export class Pulse {
                 ]);
             } catch (error) {
                 console.error('Error occurred while processing listener:', error);
-                event.error(error);
+                // Convert unknown error to Error type
+                const errorObj = error instanceof Error ? error : new Error(String(error));
+                event.error(errorObj);
             }
         });
 
