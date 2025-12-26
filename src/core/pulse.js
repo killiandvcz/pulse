@@ -1,6 +1,6 @@
 import { PulseEvent } from './event.js';
-import { Listener } from './listener';
-import { Middleware } from './middleware';
+import { Listener } from './listener.js';
+import { Middleware } from './middleware.js';
 
 /**
  * @template {typeof PulseEvent} [TEventClass=typeof PulseEvent]
@@ -34,6 +34,9 @@ export class Pulse {
 
     /** @type {Map<string, RegExp>} */
     #patternCache;
+
+    /** @type {number} */
+    #MAX_CACHE_SIZE = 1000;
 
     /**
      * @param {String} pattern
@@ -74,22 +77,30 @@ export class Pulse {
      * @param {import('./listener').Listener<InstanceType<TEventClass>>} listener
      */
     async applyMiddlewaresToListener(event, listener) {
-        const matchingMiddlewares = this.middlewares.filter(middleware => 
+        const matchingMiddlewares = this.middlewares.filter(middleware =>
             middleware.matches(event.topic)
         );
-        
+
         if (matchingMiddlewares.length === 0) return listener.call(event);
-        
+
         let index = 0;
-        
+
         const next = async () => {
             if (index >= matchingMiddlewares.length) return listener.call(event);
-            
+
             const middleware = matchingMiddlewares[index++];
             if (!middleware) return listener.call(event);
-            return middleware.callback({event, pulse: this, listener}, next);
+
+            try {
+                return await middleware.callback({event, pulse: this, listener}, next);
+            } catch (err) {
+                // Collect error and continue to next middleware/listener
+                const errorObj = err instanceof Error ? err : new Error(String(err));
+                event.error(errorObj);
+                return next();
+            }
         };
-        
+
         return next();
     }
 
@@ -120,7 +131,7 @@ export class Pulse {
 
         if (listeners.length === 0) return event;
 
-        const timeout = options?.timeout || 30000;
+        const timeout = options?.timeout || 5000;
 
         const promises = listeners.map(async listener => {
             try {
@@ -148,7 +159,7 @@ export class Pulse {
     }
 
     /**
-     * @param {string} pattern 
+     * @param {string} pattern
      * @returns {RegExp}
      */
     #compilePattern(pattern) {
@@ -156,10 +167,10 @@ export class Pulse {
         if (this.#patternCache.has(pattern)) {
             return this.#patternCache.get(pattern) || /.*/;
         }
-        
+
         let regexStr = '^';
         let i = 0;
-        
+
         while (i < pattern.length) {
             // ** = zéro ou plusieurs sections
             if (pattern[i] === '*' && pattern[i + 1] === '*') {
@@ -180,13 +191,47 @@ export class Pulse {
                     if (regexStr.endsWith('\\:')) {
                         regexStr = regexStr.slice(0, -2);
                     }
-                    
+
                     if (i + 2 >= pattern.length) {
-                        // "something:**" → le : et ce qui suit sont optionnels
+                        // "something:**" → le : et ce qui suit sont optionnels (0 ou plus)
                         regexStr += '(?::[^:]+(?::[^:]+)*)?';
                     } else if (pattern[i + 2] === ':') {
-                        // "something:**:other" → au moins une section entre
+                        // "something:**:other" → zéro ou plusieurs sections entre
+                        regexStr += '(?::[^:]+(?::[^:]+)*)?\\:';
+                        i += 3; // Skip "**:"
+                        continue;
+                    }
+                }
+                i += 2;
+            }
+            // ++ = une ou plusieurs sections
+            else if (pattern[i] === '+' && pattern[i + 1] === '+') {
+                if (i === 0) {
+                    // ++ au tout début du pattern
+                    if (i + 2 >= pattern.length) {
+                        // Juste "++" → match au moins une section
+                        regexStr += '[^:]+(?::[^:]+)*';
+                    } else if (pattern[i + 2] === ':') {
+                        // "++:something" → au moins une section suivie de :something
+                        regexStr += '[^:]+(?::[^:]+)*\\:';
+                        i += 3; // Skip "++:"
+                        continue;
+                    }
+                } else {
+                    // ++ après d'autres caractères
+                    // Retirer le dernier ":" qu'on vient d'ajouter
+                    if (regexStr.endsWith('\\:')) {
+                        regexStr = regexStr.slice(0, -2);
+                    }
+
+                    if (i + 2 >= pattern.length) {
+                        // "something:++" → au moins une section après
                         regexStr += ':[^:]+(?::[^:]+)*';
+                    } else if (pattern[i + 2] === ':') {
+                        // "something:++:other" → au moins une section entre
+                        regexStr += ':[^:]+(?::[^:]+)*\\:';
+                        i += 3; // Skip "++:"
+                        continue;
                     }
                 }
                 i += 2;
@@ -207,13 +252,18 @@ export class Pulse {
                 i++;
             }
         }
-        
+
         regexStr += '$';
         const regex = new RegExp(regexStr);
-        
+
+        // Vérifier la taille du cache avant d'ajouter
+        if (this.#patternCache.size >= this.#MAX_CACHE_SIZE) {
+            this.#patternCache.clear();
+        }
+
         // Mettre en cache
         this.#patternCache.set(pattern, regex);
-        
+
         return regex;
     }
 
@@ -258,6 +308,14 @@ export class Pulse {
      */
     removeAllListeners() {
         this.listeners.clear();
+    }
+
+    /**
+     * Clear the pattern cache
+     * Useful for memory management in long-running applications
+     */
+    clearPatternCache() {
+        this.#patternCache.clear();
     }
 
 }

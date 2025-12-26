@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.3] - 2025-12-26
+
+### 🎯 Pattern Matching Improvements
+
+#### Changed
+- **`**` pattern now matches 0 or more sections** (previously inconsistent)
+  - `user:**:success` now matches `user:success` (0 sections), `user:login:success` (1 section), etc.
+  - `**:login` now matches `login` (0 sections before), `user:login`, `app:user:login`
+  - `user:**` now matches `user` (0 sections after), `user:login`, `user:login:admin`
+
+#### Added
+- **`++` pattern for 1 or more sections** (new)
+  - `++:login` matches `user:login`, `app:user:login` but NOT `login`
+  - `user:++` matches `user:login`, `user:login:admin` but NOT `user`
+  - `user:++:success` matches `user:login:success`, `user:login:admin:success` but NOT `user:success`
+
+### ⚡ Performance & Reliability
+
+#### Changed
+- **Reduced default timeout from 30s to 5s** for better responsiveness
+  - Custom timeouts can still be set via options: `pulse.emit('topic', data, { timeout: 10000 })`
+
+#### Added
+- **Pattern cache management** to prevent memory leaks
+  - Automatic cache clearing when reaching 1000 patterns
+  - New `pulse.clearPatternCache()` method for manual cache management
+  - Useful for long-running applications with dynamic pattern usage
+
+### 🔧 Event Context Management
+
+#### Changed
+- **Refactored PulseEvent to use composition instead of Map inheritance**
+  - Replaces `extends Map` with private `#context` field
+  - Avoids method collisions and unexpected Map behaviors
+  - More predictable and controlled API
+
+#### Added
+- **New context methods on PulseEvent**:
+  - `event.set(key, value)` - Set context value (chainable)
+  - `event.get(key)` - Get context value
+  - `event.has(key)` - Check if key exists
+  - `event.delete(key)` - Remove context entry
+  - `event.clearContext()` - Clear all context data (chainable)
+
+### 🛡️ Error Handling
+
+#### Added
+- **Unified error handling between middlewares and listeners**
+  - Middleware errors are now caught and collected in `event.errors`
+  - Event processing continues even if a middleware throws an error
+  - Provides consistent error behavior across the entire event chain
+
+### 🐛 Bug Fixes
+
+#### Fixed
+- **Module import extensions**: Added missing `.js` extensions to internal imports
+  - Fixed `import { Listener } from './listener'` → `import { Listener } from './listener.js'`
+  - Fixed `import { Middleware } from './middleware'` → `import { Middleware } from './middleware.js'`
+  - Ensures compatibility with ES modules
+
 ## [2.0.0] - 2025-12-26
 
 ### 🚀 Major Release - API Simplification

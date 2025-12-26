@@ -10,14 +10,16 @@ Pulse is a sophisticated event system that extends beyond basic pub/sub patterns
 
 ## Features
 
-- 🔍 **Hierarchical topic matching** with single (`*`) and deep (`**`) wildcards
+- 🔍 **Hierarchical topic matching** with single (`*`), zero-or-more (`**`), and one-or-more (`++`) wildcards
 - ⚡ **Middleware support** for transforming and filtering events
-- ⏱️ **Built-in timeout handling** for asynchronous operations
+- ⏱️ **Built-in timeout handling** for asynchronous operations (default 5s)
 - 🔄 **Promise-based API** for modern JavaScript applications
 - 🧠 **Smart event routing** based on pattern matching
+- 💾 **Context management** for storing data within events
 - 💪 **Typed with JSDoc** for excellent IDE integration
 - 🪶 **Lightweight** with zero dependencies
 - 🧪 **Thoroughly tested** with extensive unit tests
+- 🛡️ **Unified error handling** across middlewares and listeners
 
 ## Installation
 
@@ -90,10 +92,16 @@ Listeners can use patterns to match multiple topics:
 
 - `*`: Matches exactly one section
   - `user:*` matches `user:login` and `user:logout` but not `user:profile:view`
-  
+
 - `**`: Matches zero or more sections
-  - `user:**` matches `user`, `user:login`, and `user:profile:view`
-  - `user:**:deleted` matches `user:deleted`, `user:account:deleted`, etc.
+  - `user:**` matches `user` (0 sections), `user:login` (1 section), and `user:profile:view` (2 sections)
+  - `**:login` matches `login` (0 sections before), `user:login`, `app:user:login`
+  - `user:**:deleted` matches `user:deleted` (0 sections between), `user:account:deleted`, etc.
+
+- `++`: Matches one or more sections (new in v2.1.3)
+  - `user:++` matches `user:login` and `user:profile:view` but NOT `user`
+  - `++:login` matches `user:login` and `app:user:login` but NOT `login`
+  - `user:++:deleted` matches `user:account:deleted` but NOT `user:deleted`
 
 ### Events
 
@@ -165,8 +173,8 @@ pulse.on('greeting', ({ event }) => {
 // Basic emission
 const event = await pulse.emit('topic', { message: 'Hello World' });
 
-// With timeout (default is 30000ms)
-const event = await pulse.emit('topic', data, { timeout: 5000 });
+// With custom timeout (default is 5000ms)
+const event = await pulse.emit('topic', data, { timeout: 10000 });
 
 // Silent mode (no responses or errors collected)
 const event = await pulse.emit('topic', data, { silent: true });
@@ -248,6 +256,13 @@ pulse.use('**', async ({ event }, next) => {
   await next();
   console.timeEnd(`event:${event.id}`);
 });
+
+// Error handling in middleware (v2.1.3+)
+// Errors thrown in middleware are automatically caught and collected
+pulse.use('user:**', async ({ event }, next) => {
+  throw new Error('Middleware error');  // Auto-caught and added to event.errors
+  // The next middleware and listener will still execute
+});
 ```
 
 ### Cleaning Up
@@ -262,6 +277,10 @@ pulse.off('topic');
 
 // Remove all listeners
 pulse.removeAllListeners();
+
+// Clear pattern cache (v2.1.3+)
+// Useful for long-running applications with dynamic patterns
+pulse.clearPatternCache();
 ```
 
 ## API Reference
@@ -287,6 +306,7 @@ const pulse = new Pulse(options);
 | `emit` | `topic: string`, `data: any`, `options?: Object` | `Promise<PulseEvent>` | Emit an event with the specified topic and data |
 | `off` | `pattern: string` | `void` | Remove all listeners for a pattern |
 | `removeAllListeners` | | `void` | Remove all listeners |
+| `clearPatternCache` | | `void` | Clear the pattern cache (useful for memory management) |
 | `matchesPattern` | `topic: string`, `pattern: string` | `boolean` | Check if a topic matches a pattern |
 
 **Callback signature for listeners:**
@@ -311,7 +331,7 @@ async ({ event, pulse, listener }, next) => { /* ... */ }
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `timeout` | `number` | `30000` | Time in milliseconds to wait for listener responses before timing out |
+| `timeout` | `number` | `5000` | Time in milliseconds to wait for listener responses before timing out |
 | `silent` | `boolean` | `false` | If true, the event will not collect responses or errors |
 | `source` | `string\|null` | `null` | Optional source identifier for the event |
 
@@ -335,8 +355,51 @@ async ({ event, pulse, listener }, next) => { /* ... */ }
 |--------|------------|---------|-------------|
 | `respond` | `data: any` | `PulseEvent` | Add response data to the event |
 | `error` | `error: Error` | `PulseEvent` | Add an error to the event |
+| `set` | `key: any`, `value: any` | `PulseEvent` | Set a context value (chainable) |
+| `get` | `key: any` | `any` | Get a context value |
+| `has` | `key: any` | `boolean` | Check if a context key exists |
+| `delete` | `key: any` | `boolean` | Delete a context entry |
+| `clearContext` | | `PulseEvent` | Clear all context data (chainable) |
 
 ## Advanced Examples
+
+### Using Event Context
+
+Event context allows you to store metadata and share data between middlewares and listeners:
+
+```javascript
+// Middleware can enrich the event with context data
+pulse.use('user:**', async ({ event }, next) => {
+  // Add metadata to event context
+  event.set('processingStarted', Date.now());
+  event.set('correlationId', generateId());
+
+  await next();
+
+  // Access context after processing
+  const duration = Date.now() - event.get('processingStarted');
+  console.log(`Event ${event.get('correlationId')} took ${duration}ms`);
+});
+
+// Listeners can access context data
+pulse.on('user:created', ({ event }) => {
+  console.log(`Correlation ID: ${event.get('correlationId')}`);
+
+  // Store additional metadata
+  event.set('handler', 'user-creation-handler');
+  event.set('version', '1.0');
+
+  // Check if context exists
+  if (event.has('correlationId')) {
+    // Use it for logging/tracking
+  }
+});
+
+// Clear context when needed
+pulse.on('cleanup', ({ event }) => {
+  event.clearContext();
+});
+```
 
 ### Creating a Request-Response Pattern
 
