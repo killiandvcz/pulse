@@ -74,22 +74,30 @@ export class Pulse {
      * @param {import('./listener').Listener<InstanceType<TEventClass>>} listener
      */
     async applyMiddlewaresToListener(event, listener) {
-        const matchingMiddlewares = this.middlewares.filter(middleware => 
+        const matchingMiddlewares = this.middlewares.filter(middleware =>
             middleware.matches(event.topic)
         );
-        
+
         if (matchingMiddlewares.length === 0) return listener.call(event);
-        
+
         let index = 0;
-        
+
         const next = async () => {
             if (index >= matchingMiddlewares.length) return listener.call(event);
-            
+
             const middleware = matchingMiddlewares[index++];
             if (!middleware) return listener.call(event);
-            return middleware.callback({event, pulse: this, listener}, next);
+
+            try {
+                return await middleware.callback({event, pulse: this, listener}, next);
+            } catch (err) {
+                // Collect error and continue to next middleware/listener
+                const errorObj = err instanceof Error ? err : new Error(String(err));
+                event.error(errorObj);
+                return next();
+            }
         };
-        
+
         return next();
     }
 
