@@ -37,8 +37,10 @@ export class PulseEvent {
 
     /**
      * Add a response to the event
+     * @template {PulseEvent} T
+     * @this {T}
      * @param {any} data
-     * @returns {PulseEvent} Returns this for chaining
+     * @returns {T} Returns this for chaining
      */
     respond(data) {
         if (this.options.silent) return this;
@@ -48,8 +50,10 @@ export class PulseEvent {
 
     /**
      * Add an error to the event
+     * @template {PulseEvent} T
+     * @this {T}
      * @param {Error} err
-     * @returns {PulseEvent} Returns this for chaining
+     * @returns {T} Returns this for chaining
      */
     error(err) {
         if (this.options.silent) return this;

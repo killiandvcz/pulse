@@ -4,23 +4,27 @@
 */
 
 /**
+* @template {PulseEvent} [TEvent=PulseEvent]
 * @callback NextCallback
-* @param {PulseEvent} event
 * @returns {Promise<void>}
 */
 
 /**
+* @template {PulseEvent} [TEvent=PulseEvent]
 * @callback MiddlewareCallback
-* @param {import('./listener').ListenerContext} context
-* @param {NextCallback} next
+* @param {import('./listener').ListenerContext<TEvent>} context
+* @param {NextCallback<TEvent>} next
 * @returns {Promise<any>}
 */
 
+/**
+* @template {PulseEvent} [TEvent=PulseEvent]
+*/
 export class Middleware {
     /**
     * @param {import('./pulse').Pulse} pulse
     * @param {String} pattern
-    * @param {MiddlewareCallback} callback
+    * @param {MiddlewareCallback<TEvent>} callback
     */
     constructor(pulse, pattern, callback) {
         this.pulse = pulse;

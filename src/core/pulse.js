@@ -3,18 +3,22 @@ import { Listener } from './listener';
 import { Middleware } from './middleware';
 
 /**
+ * @template {typeof PulseEvent} [TEventClass=typeof PulseEvent]
  * @typedef {Object} PulseOptions
- * @property {typeof PulseEvent} [EventClass] - Custom event class to use (must extend PulseEvent)
+ * @property {TEventClass} [EventClass] - Custom event class to use (must extend PulseEvent)
  */
 
+/**
+ * @template {typeof PulseEvent} [TEventClass=typeof PulseEvent]
+ */
 export class Pulse {
     /**
-     * @param {PulseOptions} [options]
+     * @param {PulseOptions<TEventClass>} [options]
      */
     constructor(options = {}) {
-        /** @type {Map<string, Set<import('./listener').Listener>>} */
+        /** @type {Map<string, Set<import('./listener').Listener<InstanceType<TEventClass>>>>} */
         this.listeners = new Map();
-        /** @type {import('./middleware').Middleware[]} */
+        /** @type {import('./middleware').Middleware<InstanceType<TEventClass>>[]} */
         this.middlewares = [];
 
         this.#patternCache = new Map();
@@ -32,9 +36,10 @@ export class Pulse {
     #patternCache;
 
     /**
-     * @param {String} pattern 
-     * @param {(context: import('./listener').ListenerContext) => any} callback 
-     * @param {import('./listener').ListenerOptions} options 
+     * @param {String} pattern
+     * @param {(context: import('./listener').ListenerContext<InstanceType<TEventClass>>) => any} callback
+     * @param {import('./listener').ListenerOptions} options
+     * @returns {import('./listener').Listener<InstanceType<TEventClass>>}
      */
     on = (pattern, callback, options = {}) => {
         const listener = new Listener(this, pattern, callback, options);
@@ -46,15 +51,17 @@ export class Pulse {
     }
 
     /**
-     * @param {String} pattern 
-     * @param {(context: import('./listener').ListenerContext) => any} callback 
-     * @param {import('./listener').ListenerOptions} options 
+     * @param {String} pattern
+     * @param {(context: import('./listener').ListenerContext<InstanceType<TEventClass>>) => any} callback
+     * @param {import('./listener').ListenerOptions} options
+     * @returns {import('./listener').Listener<InstanceType<TEventClass>>}
      */
     once = (pattern, callback, options = {}) => this.on(pattern, callback, {...options, once: true });
 
     /**
-     * @param {string} pattern 
-     * @param {import('./middleware').MiddlewareCallback} callback
+     * @param {string} pattern
+     * @param {import('./middleware').MiddlewareCallback<InstanceType<TEventClass>>} callback
+     * @returns {import('./middleware').Middleware<InstanceType<TEventClass>>}
      */
     use = (pattern, callback) => {
         const middleware = new Middleware(this, pattern, callback);
@@ -63,8 +70,8 @@ export class Pulse {
     }
 
     /**
-     * @param {import('./event').PulseEvent} event 
-     * @param {import('./listener').Listener} listener
+     * @param {InstanceType<TEventClass>} event
+     * @param {import('./listener').Listener<InstanceType<TEventClass>>} listener
      */
     async applyMiddlewaresToListener(event, listener) {
         const matchingMiddlewares = this.middlewares.filter(middleware => 
@@ -92,7 +99,7 @@ export class Pulse {
      * @param {{
      * timeout?: number,
      * }} options
-     * @returns {Promise<import('./event').PulseEvent>}
+     * @returns {Promise<InstanceType<TEventClass>>}
      */
     emit = async (topic, data, options = {}) => {
         if (!this.isValidTopic(topic)) {
@@ -100,7 +107,7 @@ export class Pulse {
         }
 
 
-        /** @type {import('./listener').Listener[]} */
+        /** @type {import('./listener').Listener<InstanceType<TEventClass>>[]} */
         const listeners = [];
 
         for (const [pattern, patternListeners] of this.listeners.entries()) {

@@ -7,17 +7,21 @@
 */
 
 /**
+ * @template {import('./event').PulseEvent} [TEvent=import('./event').PulseEvent]
  * @typedef {Object} ListenerContext
  * @property {import('./pulse').Pulse} pulse
- * @property {import('./event').PulseEvent} event
- * @property {Listener} listener
+ * @property {TEvent} event
+ * @property {Listener<TEvent>} listener
  */
 
+/**
+ * @template {import('./event').PulseEvent} [TEvent=import('./event').PulseEvent]
+ */
 export class Listener {
     /**
-     * @param {import('./pulse').Pulse} pulse 
-     * @param {string} pattern 
-     * @param {(context: ListenerContext) => void} callback 
+     * @param {import('./pulse').Pulse} pulse
+     * @param {string} pattern
+     * @param {(context: ListenerContext<TEvent>) => void} callback
      * @param {ListenerOptions} options
      */
     constructor(pulse, pattern, callback, options) {
@@ -41,10 +45,10 @@ export class Listener {
         }
     }
 
-    /** @type {(context: ListenerContext) => any} */
+    /** @type {(context: ListenerContext<TEvent>) => any} */
     #callback;
 
-    /** @param {import('./event').PulseEvent} event */
+    /** @param {TEvent} event */
     call = async (event) => Promise.resolve(this.#callback({event, pulse: this.pulse, listener: this})).then(res => {
         // If callback returns a value, automatically add it to responses
         if (res !== undefined && res !== null) {
