@@ -1,6 +1,6 @@
 {
   "name": "@killiandvcz/pulse",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "A powerful, lightweight event system with pattern matching, middleware, and timeout support",
   "main": "dist/index.js",
   "module": "dist/index.js",
