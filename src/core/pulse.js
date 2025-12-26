@@ -35,6 +35,9 @@ export class Pulse {
     /** @type {Map<string, RegExp>} */
     #patternCache;
 
+    /** @type {number} */
+    #MAX_CACHE_SIZE = 1000;
+
     /**
      * @param {String} pattern
      * @param {(context: import('./listener').ListenerContext<InstanceType<TEventClass>>) => any} callback
@@ -218,10 +221,15 @@ export class Pulse {
         
         regexStr += '$';
         const regex = new RegExp(regexStr);
-        
+
+        // Vérifier la taille du cache avant d'ajouter
+        if (this.#patternCache.size >= this.#MAX_CACHE_SIZE) {
+            this.#patternCache.clear();
+        }
+
         // Mettre en cache
         this.#patternCache.set(pattern, regex);
-        
+
         return regex;
     }
 
@@ -266,6 +274,14 @@ export class Pulse {
      */
     removeAllListeners() {
         this.listeners.clear();
+    }
+
+    /**
+     * Clear the pattern cache
+     * Useful for memory management in long-running applications
+     */
+    clearPatternCache() {
+        this.#patternCache.clear();
     }
 
 }
