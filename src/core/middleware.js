@@ -1,11 +1,11 @@
 /**
 * @typedef {import('./pulse').Pulse} Pulse
-* @typedef {import('./event').Event} Event
+* @typedef {import('./event').PulseEvent} PulseEvent
 */
 
 /**
 * @callback NextCallback
-* @param {Event} event
+* @param {PulseEvent} event
 * @returns {Promise<void>}
 */
 
