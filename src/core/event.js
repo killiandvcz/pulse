@@ -4,6 +4,12 @@
  */
 export class PulseEvent {
     /**
+     * Private Map to store contextual data
+     * @type {Map<any, any>}
+     */
+    #context = new Map();
+
+    /**
      * @param {string} topic
      * @param {any} data
      * @param {Object} [options]
@@ -58,6 +64,57 @@ export class PulseEvent {
     error(err) {
         if (this.options.silent) return this;
         this.errors.push(err);
+        return this;
+    }
+
+    /**
+     * Set a context value
+     * @template {PulseEvent} T
+     * @this {T}
+     * @param {any} key - The key to set
+     * @param {any} value - The value to associate with the key
+     * @returns {T} Returns this for chaining
+     */
+    set(key, value) {
+        this.#context.set(key, value);
+        return this;
+    }
+
+    /**
+     * Get a context value
+     * @param {any} key - The key to retrieve
+     * @returns {any} The value associated with the key, or undefined if not found
+     */
+    get(key) {
+        return this.#context.get(key);
+    }
+
+    /**
+     * Check if a context key exists
+     * @param {any} key - The key to check
+     * @returns {boolean} True if the key exists in the context
+     */
+    has(key) {
+        return this.#context.has(key);
+    }
+
+    /**
+     * Delete a context entry
+     * @param {any} key - The key to delete
+     * @returns {boolean} True if the key existed and was deleted, false otherwise
+     */
+    delete(key) {
+        return this.#context.delete(key);
+    }
+
+    /**
+     * Clear all context data
+     * @template {PulseEvent} T
+     * @this {T}
+     * @returns {T} Returns this for chaining
+     */
+    clearContext() {
+        this.#context.clear();
         return this;
     }
 }
