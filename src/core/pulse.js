@@ -131,7 +131,7 @@ export class Pulse {
 
         if (listeners.length === 0) return event;
 
-        const timeout = options?.timeout || 30000;
+        const timeout = options?.timeout || 5000;
 
         const promises = listeners.map(async listener => {
             try {

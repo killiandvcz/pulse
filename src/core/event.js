@@ -15,7 +15,7 @@ export class PulseEvent {
      * @param {Object} [options]
      * @param {boolean} [options.silent=false] - If true, the event will not collect responses or errors.
      * @param {string|null} [options.source=null] - The source of the event.
-     * @param {number} [options.timeout=30000] - The timeout for the event in milliseconds.
+     * @param {number} [options.timeout=5000] - The timeout for the event in milliseconds.
      */
     constructor(topic, data, options = {}) {
         this.topic = topic;
@@ -23,7 +23,7 @@ export class PulseEvent {
         this.options = {
             silent: false,
             source: null,
-            timeout: 30000,
+            timeout: 5000,
             ...options
         };
 
