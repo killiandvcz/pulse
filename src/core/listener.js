@@ -6,12 +6,10 @@
 * @property {Number} [autodestroy.calls] - The number of calls to the listener before it is removed.
 */
 
-import { Result } from './result';
-
 /**
  * @typedef {Object} ListenerContext
  * @property {import('./pulse').Pulse} pulse
- * @property {import('./event').Event} event
+ * @property {import('./event').PulseEvent} event
  * @property {Listener} listener
  */
 
@@ -46,13 +44,11 @@ export class Listener {
     /** @type {(context: ListenerContext) => any} */
     #callback;
 
-    /** @param {import('./event').Event} event */
+    /** @param {import('./event').PulseEvent} event */
     call = async (event) => Promise.resolve(this.#callback({event, pulse: this.pulse, listener: this})).then(res => {
-        if (res instanceof Result && !event.results.includes(res)) {
-            event.results.push(res);
-        } else if (res && !(res instanceof Result)) {
-            const result = new Result(event, res);
-            event.results.push(result);
+        // If callback returns a value, automatically add it to responses
+        if (res !== undefined && res !== null) {
+            event.respond(res);
         }
     }).catch(err => {
         event.error(err);

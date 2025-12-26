@@ -1,15 +1,31 @@
-import { Event } from './event';
+import { PulseEvent } from './event.js';
 import { Listener } from './listener';
 import { Middleware } from './middleware';
 
+/**
+ * @typedef {Object} PulseOptions
+ * @property {typeof PulseEvent} [EventClass] - Custom event class to use (must extend PulseEvent)
+ */
+
 export class Pulse {
-    constructor() {
+    /**
+     * @param {PulseOptions} [options]
+     */
+    constructor(options = {}) {
         /** @type {Map<string, Set<import('./listener').Listener>>} */
         this.listeners = new Map();
         /** @type {import('./middleware').Middleware[]} */
         this.middlewares = [];
 
         this.#patternCache = new Map();
+
+        // Store the EventClass to use (default to PulseEvent)
+        this.EventClass = options.EventClass || PulseEvent;
+
+        // Validate that EventClass extends PulseEvent
+        if (this.EventClass !== PulseEvent && !(this.EventClass.prototype instanceof PulseEvent)) {
+            throw new Error('EventClass must extend PulseEvent');
+        }
     }
 
     /** @type {Map<string, RegExp>} */
@@ -71,12 +87,12 @@ export class Pulse {
     }
 
     /**
-     * @param {string} topic 
-     * @param {any} data 
+     * @param {string} topic
+     * @param {any} data
      * @param {{
      * timeout?: number,
      * }} options
-     * @returns {Promise<import('./event').Event>}
+     * @returns {Promise<import('./event').PulseEvent>}
      */
     emit = async (topic, data, options = {}) => {
         if (!this.isValidTopic(topic)) {
@@ -93,7 +109,7 @@ export class Pulse {
             }
         }
 
-        const event = new Event(topic, data, options);
+        const event = new this.EventClass(topic, data, options);
 
         if (listeners.length === 0) return event;
 
@@ -113,6 +129,7 @@ export class Pulse {
                 ]);
             } catch (error) {
                 console.error('Error occurred while processing listener:', error);
+                event.error(error);
             }
         });
 
@@ -211,12 +228,27 @@ export class Pulse {
     }
 
     /**
-     * @param {string} topic 
-     * @param {string} pattern 
+     * @param {string} topic
+     * @param {string} pattern
      * @returns {boolean}
      */
     matchesPattern(topic, pattern) {
         return this.#matchPattern(topic, pattern);
     }
-    
+
+    /**
+     * Remove all listeners for a specific pattern
+     * @param {string} pattern
+     */
+    off(pattern) {
+        this.listeners.delete(pattern);
+    }
+
+    /**
+     * Remove all listeners
+     */
+    removeAllListeners() {
+        this.listeners.clear();
+    }
+
 }
