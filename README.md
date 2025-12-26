@@ -44,18 +44,18 @@ import { Pulse } from '@killiandvcz/pulse';
 const pulse = new Pulse();
 
 // Subscribe to events
-pulse.on('user:created', (event) => {
+pulse.on('user:created', ({ event }) => {
   console.log(`New user created: ${event.data.username}`);
   event.respond({ success: true });
 });
 
 // Subscribe with wildcards
-pulse.on('user:*:updated', (event) => {
+pulse.on('user:*:updated', ({ event }) => {
   console.log(`User property updated: ${event.topic}`);
 });
 
 // Add middleware
-pulse.use('user:**', async (event, next) => {
+pulse.use('user:**', async ({ event }, next) => {
   console.log(`[${new Date().toISOString()}] User event: ${event.topic}`);
   // Call next to continue the middleware chain
   await next();
@@ -63,12 +63,12 @@ pulse.use('user:**', async (event, next) => {
 });
 
 // Emit events
-const results = await pulse.emit('user:created', { 
-  username: 'john_doe', 
-  email: 'john@example.com' 
+const event = await pulse.emit('user:created', {
+  username: 'john_doe',
+  email: 'john@example.com'
 });
 
-console.log(results[0].response); // { success: true }
+console.log(event.responses[0]); // { success: true }
 ```
 
 ## Core Concepts
@@ -101,25 +101,26 @@ When you emit a topic, Pulse creates an Event object containing:
 
 - `topic`: The emitted topic
 - `data`: The payload data
-- `response`: Response data (if set by listener)
-- `err`: Error information (if an error occurred)
+- `responses`: Array of response data from listeners
+- `errors`: Array of errors that occurred during processing
 - `timestamp`: When the event was created
 - `id`: Unique event identifier
+- `options`: Event options (silent, source, timeout)
 
 ### Middleware
 
 Middleware functions allow for pre/post-processing of events:
 
 ```javascript
-pulse.use('pattern', async (event, next) => {
+pulse.use('pattern', async ({ event, pulse, listener }, next) => {
   // Pre-processing
   console.log(`Processing ${event.topic}`);
-  
+
   // Continue chain (required to reach listeners)
   await next();
-  
+
   // Post-processing (happens after listener execution)
-  console.log(`Response: ${event.response}`);
+  console.log(`Responses: ${event.responses}`);
 });
 ```
 
@@ -129,19 +130,32 @@ pulse.use('pattern', async (event, next) => {
 
 ```javascript
 // Basic subscription
-pulse.on('topic', (event) => {
+pulse.on('topic', ({ event, pulse, listener }) => {
   // Handle event
+  // event: the event object
+  // pulse: the pulse instance
+  // listener: the listener object
+});
+
+// Subscribe once (auto-remove after first call)
+pulse.once('topic', ({ event }) => {
+  // This will only be called once
 });
 
 // With options
-pulse.on('topic', (event) => {
+pulse.on('topic', ({ event }) => {
   // Handle event
-}, { 
+}, {
   once: true, // Auto-remove after being called once
   autodestroy: {
     calls: 5,   // Remove after 5 calls
     timeout: 60000  // Remove after 60 seconds
   }
+});
+
+// Return a value to automatically add it to responses
+pulse.on('greeting', ({ event }) => {
+  return `Hello, ${event.data.name}!`;  // Automatically added to responses
 });
 ```
 
@@ -149,43 +163,58 @@ pulse.on('topic', (event) => {
 
 ```javascript
 // Basic emission
-const results = await pulse.emit('topic', { message: 'Hello World' });
+const event = await pulse.emit('topic', { message: 'Hello World' });
 
 // With timeout (default is 30000ms)
-const results = await pulse.emit('topic', data, { timeout: 5000 });
+const event = await pulse.emit('topic', data, { timeout: 5000 });
+
+// Silent mode (no responses or errors collected)
+const event = await pulse.emit('topic', data, { silent: true });
 ```
 
 ### Handling Responses
 
 ```javascript
 // In listener: set a response
-pulse.on('greeting', (event) => {
-  return `Hello, ${event.data.name}!`;  // Automatically sets response
+pulse.on('greeting', ({ event }) => {
+  return `Hello, ${event.data.name}!`;  // Automatically added to responses
   // Or explicitly:
   // event.respond(`Hello, ${event.data.name}!`);
 });
 
-// In emitter: get the response
-const results = await pulse.emit('greeting', { name: 'John' });
-console.log(results[0].response);  // "Hello, John!"
+// In emitter: get the responses
+const event = await pulse.emit('greeting', { name: 'John' });
+console.log(event.responses[0]);  // "Hello, John!"
+
+// Multiple listeners can add multiple responses
+pulse.on('greeting', ({ event }) => event.respond('Response 1'));
+pulse.on('greeting', ({ event }) => event.respond('Response 2'));
+const event = await pulse.emit('greeting', {});
+console.log(event.responses);  // ['Response 1', 'Response 2']
 ```
 
 ### Error Handling
 
 ```javascript
 // In listener: handle errors
-pulse.on('process', (event) => {
+pulse.on('process', ({ event }) => {
   try {
     // Do something that might fail
+    throw new Error('Something went wrong');
   } catch (err) {
     event.error(err);
   }
 });
 
+// Errors thrown in listeners are automatically caught
+pulse.on('process', ({ event }) => {
+  throw new Error('Auto-caught error');  // Automatically added to errors
+});
+
 // In emitter: check for errors
-const results = await pulse.emit('process', data);
-if (results[0].err) {
-  console.error('Error occurred:', results[0].err);
+const event = await pulse.emit('process', data);
+if (event.errors.length > 0) {
+  console.error('Errors occurred:', event.errors);
 }
 ```
 
@@ -193,28 +222,28 @@ if (results[0].err) {
 
 ```javascript
 // Authentication middleware
-pulse.use('secure:**', async (event, next) => {
+pulse.use('secure:**', async ({ event, pulse, listener }, next) => {
   if (!event.data.token) {
     event.error(new Error('Authentication required'));
     return; // Don't call next() to stop the chain
   }
-  
+
   // Validate token
   const user = validateToken(event.data.token);
   if (!user) {
     event.error(new Error('Invalid token'));
     return;
   }
-  
+
   // Add user to event data for downstream handlers
   event.data.user = user;
-  
+
   // Continue the middleware chain
   await next();
 });
 
 // Logging middleware
-pulse.use('**', async (event, next) => {
+pulse.use('**', async ({ event }, next) => {
   console.time(`event:${event.id}`);
   await next();
   console.timeEnd(`event:${event.id}`);
@@ -242,18 +271,33 @@ pulse.removeAllListeners();
 #### Constructor
 
 ```javascript
-const pulse = new Pulse();
+const pulse = new Pulse(options);
 ```
+
+**Options:**
+- `EventClass` (optional): Custom event class that extends PulseEvent
 
 #### Methods
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
 | `on` | `pattern: string`, `callback: Function`, `options?: Object` | `Listener` | Subscribe to events matching the pattern |
+| `once` | `pattern: string`, `callback: Function`, `options?: Object` | `Listener` | Subscribe to events matching the pattern (auto-remove after first call) |
 | `use` | `pattern: string`, `callback: Function` | `Middleware` | Add middleware for events matching the pattern |
-| `emit` | `topic: string`, `data: any`, `options?: Object` | `Promise<Event[]>` | Emit an event with the specified topic and data |
+| `emit` | `topic: string`, `data: any`, `options?: Object` | `Promise<PulseEvent>` | Emit an event with the specified topic and data |
 | `off` | `pattern: string` | `void` | Remove all listeners for a pattern |
 | `removeAllListeners` | | `void` | Remove all listeners |
+| `matchesPattern` | `topic: string`, `pattern: string` | `boolean` | Check if a topic matches a pattern |
+
+**Callback signature for listeners:**
+```javascript
+({ event, pulse, listener }) => { /* ... */ }
+```
+
+**Callback signature for middleware:**
+```javascript
+async ({ event, pulse, listener }, next) => { /* ... */ }
+```
 
 #### Listener Options
 
@@ -268,7 +312,8 @@ const pulse = new Pulse();
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `timeout` | `number` | `30000` | Time in milliseconds to wait for listener responses before timing out |
-| `silent` | `boolean` | `false` | If true, the event will not store responses or errors |
+| `silent` | `boolean` | `false` | If true, the event will not collect responses or errors |
+| `source` | `string\|null` | `null` | Optional source identifier for the event |
 
 ### Event Class
 
@@ -278,17 +323,18 @@ const pulse = new Pulse();
 |----------|------|-------------|
 | `topic` | `string` | The topic of the event |
 | `data` | `any` | The payload data of the event |
-| `response` | `any` | The response data set by the listener |
-| `err` | `Error` | The error object if an error occurred |
-| `timestamp` | `number` | When the event was created |
+| `responses` | `any[]` | Array of response data from listeners |
+| `errors` | `Error[]` | Array of errors that occurred during processing |
+| `timestamp` | `number` | When the event was created (milliseconds since epoch) |
 | `id` | `string` | Unique event identifier |
+| `options` | `Object` | Event options (silent, source, timeout) |
 
 #### Methods
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
-| `respond` | `data: any` | `Event` | Set the response data for the event |
-| `error` | `error: Error` | `Event` | Set the error for the event |
+| `respond` | `data: any` | `PulseEvent` | Add response data to the event |
+| `error` | `error: Error` | `PulseEvent` | Add an error to the event |
 
 ## Advanced Examples
 
@@ -298,32 +344,32 @@ const pulse = new Pulse();
 // Create an RPC-like system
 async function callRemote(method, params) {
   const responseTopic = `response:${Date.now()}:${Math.random().toString(36).substr(2, 9)}`;
-  
+
   // Create a promise that will resolve when we get a response
   const responsePromise = new Promise((resolve) => {
-    pulse.on(responseTopic, (event) => {
+    pulse.once(responseTopic, ({ event }) => {
       resolve(event.data);
-    }, { once: true });
+    });
   });
-  
+
   // Add the response topic to the request
   await pulse.emit(`rpc:${method}`, {
     params,
     responseTopic
   });
-  
+
   // Wait for the response
   return responsePromise;
 }
 
 // Handle RPC requests
-pulse.on('rpc:**', (event) => {
+pulse.on('rpc:**', ({ event }) => {
   const method = event.topic.split(':')[1];
   const { params, responseTopic } = event.data;
-  
+
   // Process the request
   const result = processMethod(method, params);
-  
+
   // Send the response back
   pulse.emit(responseTopic, result);
 });
@@ -339,18 +385,18 @@ class Store {
   constructor(pulse, initialState = {}) {
     this.pulse = pulse;
     this.state = initialState;
-    
+
     // Listen for state change requests
-    this.pulse.on('store:set:**', (event) => {
+    this.pulse.on('store:set:**', ({ event }) => {
       const path = event.topic.replace('store:set:', '').split(':');
       this.setState(path, event.data);
     });
   }
-  
+
   setState(path, value) {
     let current = this.state;
     const pathArr = Array.isArray(path) ? path : [path];
-    
+
     // Navigate to the nested property
     for (let i = 0; i < pathArr.length - 1; i++) {
       if (!current[pathArr[i]]) {
@@ -358,12 +404,12 @@ class Store {
       }
       current = current[pathArr[i]];
     }
-    
+
     // Set the value
     const lastKey = pathArr[pathArr.length - 1];
     const oldValue = current[lastKey];
     current[lastKey] = value;
-    
+
     // Emit state change event
     this.pulse.emit(`store:changed:${path.join(':')}`, {
       oldValue,
@@ -371,30 +417,30 @@ class Store {
       path
     });
   }
-  
+
   getState(path) {
     if (!path) return this.state;
-    
+
     let current = this.state;
     const pathArr = Array.isArray(path) ? path : path.split(':');
-    
+
     for (const key of pathArr) {
       if (current[key] === undefined) return undefined;
       current = current[key];
     }
-    
+
     return current;
   }
 }
 
 // Usage
-const store = new Store(pulse, { 
+const store = new Store(pulse, {
   user: { name: 'John', age: 30 },
-  settings: { theme: 'dark' } 
+  settings: { theme: 'dark' }
 });
 
 // Listen for changes
-pulse.on('store:changed:user:name', (event) => {
+pulse.on('store:changed:user:name', ({ event }) => {
   console.log(`User's name changed from ${event.data.oldValue} to ${event.data.newValue}`);
 });
 
