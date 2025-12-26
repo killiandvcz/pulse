@@ -1,6 +1,6 @@
 import { PulseEvent } from './event.js';
-import { Listener } from './listener';
-import { Middleware } from './middleware';
+import { Listener } from './listener.js';
+import { Middleware } from './middleware.js';
 
 /**
  * @template {typeof PulseEvent} [TEventClass=typeof PulseEvent]
@@ -159,7 +159,7 @@ export class Pulse {
     }
 
     /**
-     * @param {string} pattern 
+     * @param {string} pattern
      * @returns {RegExp}
      */
     #compilePattern(pattern) {
@@ -167,10 +167,10 @@ export class Pulse {
         if (this.#patternCache.has(pattern)) {
             return this.#patternCache.get(pattern) || /.*/;
         }
-        
+
         let regexStr = '^';
         let i = 0;
-        
+
         while (i < pattern.length) {
             // ** = zéro ou plusieurs sections
             if (pattern[i] === '*' && pattern[i + 1] === '*') {
@@ -191,13 +191,47 @@ export class Pulse {
                     if (regexStr.endsWith('\\:')) {
                         regexStr = regexStr.slice(0, -2);
                     }
-                    
+
                     if (i + 2 >= pattern.length) {
-                        // "something:**" → le : et ce qui suit sont optionnels
+                        // "something:**" → le : et ce qui suit sont optionnels (0 ou plus)
                         regexStr += '(?::[^:]+(?::[^:]+)*)?';
                     } else if (pattern[i + 2] === ':') {
-                        // "something:**:other" → au moins une section entre
+                        // "something:**:other" → zéro ou plusieurs sections entre
+                        regexStr += '(?::[^:]+(?::[^:]+)*)?\\:';
+                        i += 3; // Skip "**:"
+                        continue;
+                    }
+                }
+                i += 2;
+            }
+            // ++ = une ou plusieurs sections
+            else if (pattern[i] === '+' && pattern[i + 1] === '+') {
+                if (i === 0) {
+                    // ++ au tout début du pattern
+                    if (i + 2 >= pattern.length) {
+                        // Juste "++" → match au moins une section
+                        regexStr += '[^:]+(?::[^:]+)*';
+                    } else if (pattern[i + 2] === ':') {
+                        // "++:something" → au moins une section suivie de :something
+                        regexStr += '[^:]+(?::[^:]+)*\\:';
+                        i += 3; // Skip "++:"
+                        continue;
+                    }
+                } else {
+                    // ++ après d'autres caractères
+                    // Retirer le dernier ":" qu'on vient d'ajouter
+                    if (regexStr.endsWith('\\:')) {
+                        regexStr = regexStr.slice(0, -2);
+                    }
+
+                    if (i + 2 >= pattern.length) {
+                        // "something:++" → au moins une section après
                         regexStr += ':[^:]+(?::[^:]+)*';
+                    } else if (pattern[i + 2] === ':') {
+                        // "something:++:other" → au moins une section entre
+                        regexStr += ':[^:]+(?::[^:]+)*\\:';
+                        i += 3; // Skip "++:"
+                        continue;
                     }
                 }
                 i += 2;
@@ -218,7 +252,7 @@ export class Pulse {
                 i++;
             }
         }
-        
+
         regexStr += '$';
         const regex = new RegExp(regexStr);
 
