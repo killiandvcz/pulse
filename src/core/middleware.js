@@ -33,34 +33,11 @@ export class Middleware {
     }
     
     /**
-    * @param {string} topic 
+    * @param {string} topic
     * @returns {boolean}
     */
     matches(topic) {
-        let patternString = '';
-        let i = 0;
-        
-        while (i < this.pattern.length) {
-            if (this.pattern[i] === '.' ) {
-                patternString += '\\.';
-                i++;
-            } else if (this.pattern[i] === ':') {
-                patternString += '\\:';
-                i++;
-            } else if (this.pattern[i] === '*' && this.pattern[i+1] === '*') {
-                patternString += '(.*)';
-                i += 2;
-            } else if (this.pattern[i] === '*') {
-                patternString += '([^:]*)';
-                i++;
-            } else {
-                patternString += this.pattern[i];
-                i++;
-            }
-        }
-        
-        const pattern = new RegExp(`^${patternString}$`);
-        return pattern.test(topic);
+        return this.pulse.matchesPattern(topic, this.pattern);
     }
 
     destroy() {

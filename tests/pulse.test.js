@@ -88,8 +88,7 @@ describe("Pulse", () => {
             await pulse.emit("test:foo:bar:end", {});
             await pulse.emit("test:foo", {}); // Shouldn't match
             
-            // expect(spy).toHaveBeenCalledTimes(3);
-            expect(spy).toHaveBeenCalledTimes(2);
+            expect(spy).toHaveBeenCalledTimes(3);
         });
     });
     
@@ -308,18 +307,173 @@ describe("Pulse", () => {
             expect(spy2).toHaveBeenCalledTimes(1);
         });
         
-        // test("should handle silent events", async () => {
-        //     const handler = mock((event) => {
-        //         // Try to respond to silent event
-        //         event.respond("this shouldn't be set");
-        //         expect(event.response).toBeNull();
-        //     });
-            
-        //     pulse.on("test", handler);
-            
-        //     const results = await pulse.emit("test", {}, { silent: true });
-        //     expect(handler).toHaveBeenCalledTimes(1);
-        //     expect(results[0].response).toBeNull();
-        // });
+        test("should handle silent events", async () => {
+            const handler = mock(({event}) => {
+                event.respond("this should be ignored");
+                return "also ignored";
+            });
+
+            pulse.on("test", handler);
+
+            const results = await pulse.emit("test", {}, { silent: true });
+            expect(handler).toHaveBeenCalledTimes(1);
+            expect(results.responses).toEqual([]);
+            expect(results.errors).toEqual([]);
+        });
+    });
+
+    describe("++ wildcard pattern", () => {
+        test("should match one or more sections", async () => {
+            const spy = mock(() => {});
+            pulse.on("test:++", spy);
+
+            await pulse.emit("test:foo", {});          // 1 section → match
+            await pulse.emit("test:foo:bar", {});      // 2 sections → match
+            await pulse.emit("test:foo:bar:baz", {});  // 3 sections → match
+
+            expect(spy).toHaveBeenCalledTimes(3);
+        });
+
+        test("++ should NOT match zero sections", async () => {
+            const spy = mock(() => {});
+            pulse.on("test:++:end", spy);
+
+            await pulse.emit("test:end", {});          // 0 sections → NO match
+            await pulse.emit("test:foo:end", {});      // 1 section → match
+            await pulse.emit("test:foo:bar:end", {});  // 2 sections → match
+
+            expect(spy).toHaveBeenCalledTimes(2);
+        });
+
+        test("++ at the beginning should require at least one section", async () => {
+            const spy = mock(() => {});
+            pulse.on("++:end", spy);
+
+            await pulse.emit("end", {});               // 0 sections before → NO match
+            await pulse.emit("foo:end", {});            // 1 section → match
+            await pulse.emit("foo:bar:end", {});        // 2 sections → match
+
+            expect(spy).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe("Event context", () => {
+        test("should set and get context values", async () => {
+            pulse.on("test", ({event}) => {
+                event.set("key1", "value1");
+                event.set("key2", 42);
+                return { k1: event.get("key1"), k2: event.get("key2") };
+            });
+
+            const result = await pulse.emit("test", {});
+            expect(result.responses[0]).toEqual({ k1: "value1", k2: 42 });
+        });
+
+        test("should check existence with has()", async () => {
+            pulse.on("test", ({event}) => {
+                event.set("exists", true);
+                return { has: event.has("exists"), missing: event.has("nope") };
+            });
+
+            const result = await pulse.emit("test", {});
+            expect(result.responses[0]).toEqual({ has: true, missing: false });
+        });
+
+        test("should delete context entries", async () => {
+            pulse.on("test", ({event}) => {
+                event.set("temp", "data");
+                event.delete("temp");
+                return event.has("temp");
+            });
+
+            const result = await pulse.emit("test", {});
+            expect(result.responses[0]).toBe(false);
+        });
+
+        test("should clear all context", async () => {
+            pulse.on("test", ({event}) => {
+                event.set("a", 1).set("b", 2).set("c", 3);
+                event.clearContext();
+                return { a: event.has("a"), b: event.has("b"), c: event.has("c") };
+            });
+
+            const result = await pulse.emit("test", {});
+            expect(result.responses[0]).toEqual({ a: false, b: false, c: false });
+        });
+
+        test("should share context between middleware and listener", async () => {
+            pulse.use("test", async ({event}, next) => {
+                event.set("fromMiddleware", "hello");
+                await next();
+            });
+
+            pulse.on("test", ({event}) => {
+                return event.get("fromMiddleware");
+            });
+
+            const result = await pulse.emit("test", {});
+            expect(result.responses[0]).toBe("hello");
+        });
+    });
+
+    describe("Custom event classes", () => {
+        test("should use custom event class", async () => {
+            class MyEvent extends PulseEvent {
+                customField = "custom";
+                getCustom() { return this.customField; }
+            }
+
+            const customPulse = new Pulse({ EventClass: MyEvent });
+
+            customPulse.on("test", ({event}) => {
+                return event.getCustom();
+            });
+
+            const result = await customPulse.emit("test", {});
+            expect(result.responses[0]).toBe("custom");
+            expect(result.customField).toBe("custom");
+        });
+
+        test("should reject non-PulseEvent class", () => {
+            class NotAnEvent {}
+            expect(() => new Pulse({ EventClass: NotAnEvent })).toThrow("EventClass must extend PulseEvent");
+        });
+    });
+
+    describe("Middleware destroy", () => {
+        test("should remove middleware on destroy", async () => {
+            const middleware = pulse.use("test", async ({event}, next) => {
+                event.set("mw", true);
+                await next();
+            });
+
+            expect(pulse.middlewares.length).toBe(1);
+            middleware.destroy();
+            expect(pulse.middlewares.length).toBe(0);
+        });
+
+        test("should throw on double destroy", () => {
+            const middleware = pulse.use("test", async ({event}, next) => {
+                await next();
+            });
+
+            middleware.destroy();
+            expect(() => middleware.destroy()).toThrow("Middleware already destroyed");
+        });
+    });
+
+    describe("Event ID uniqueness", () => {
+        test("should generate unique IDs for events on same topic", async () => {
+            const ids = [];
+            pulse.on("test", ({event}) => {
+                ids.push(event.id);
+            });
+
+            await pulse.emit("test", {});
+            await pulse.emit("test", {});
+            await pulse.emit("test", {});
+
+            expect(new Set(ids).size).toBe(3);
+        });
     });
 });

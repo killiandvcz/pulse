@@ -1,3 +1,6 @@
+/** @type {number} */
+let eventCounter = 0;
+
 /**
  * Base event class for Pulse event system.
  * Can be extended to create custom event types.
@@ -28,7 +31,7 @@ export class PulseEvent {
         };
 
         this.timestamp = Date.now();
-        this.id = `${this.topic}-${this.timestamp}`;
+        this.id = `${this.topic}-${this.timestamp}-${++eventCounter}`;
 
         /**
          * @type {any[]}
