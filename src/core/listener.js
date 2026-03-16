@@ -49,19 +49,20 @@ export class Listener {
     #callback;
 
     /** @param {TEvent} event */
-    call = async (event) => Promise.resolve(this.#callback({event, pulse: this.pulse, listener: this})).then(res => {
-        // If callback returns a value, automatically add it to responses
-        if (res !== undefined && res !== null) {
-            event.respond(res);
-        }
-    }).catch(err => {
-        event.error(err);
-    }).finally(() => {
+    call = async (event) => {
+        // Increment synchronously before async execution to prevent race conditions
         this.calls++;
         if (this.options?.autodestroy?.calls && this.calls >= this.options.autodestroy.calls) {
             this.destroy();
         }
-    });
+        return Promise.resolve(this.#callback({event, pulse: this.pulse, listener: this})).then(res => {
+            if (res !== undefined && res !== null) {
+                event.respond(res);
+            }
+        }).catch(err => {
+            event.error(err);
+        });
+    };
 
     destroy = () => {
         if (this.timeout) {

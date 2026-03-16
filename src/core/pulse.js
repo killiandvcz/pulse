@@ -46,7 +46,7 @@ export class Pulse {
      */
     on = (pattern, callback, options = {}) => {
         const listener = new Listener(this, pattern, callback, options);
-        const patternWithoutWildcards = pattern.replace(/\*/g, "placeholder");
+        const patternWithoutWildcards = pattern.replace(/\*+|\++/g, "placeholder");
         if (!this.isValidTopic(patternWithoutWildcards)) throw new Error(`Invalid pattern: ${pattern}`);
         if (!this.listeners.has(pattern)) this.listeners.set(pattern, new Set());
         this.listeners.get(pattern)?.add(listener);
@@ -94,10 +94,9 @@ export class Pulse {
             try {
                 return await middleware.callback({event, pulse: this, listener}, next);
             } catch (err) {
-                // Collect error and continue to next middleware/listener
+                // Collect error and stop the chain — a throwing middleware should block execution
                 const errorObj = err instanceof Error ? err : new Error(String(err));
                 event.error(errorObj);
-                return next();
             }
         };
 
@@ -134,9 +133,10 @@ export class Pulse {
         const timeout = options?.timeout || 5000;
 
         const promises = listeners.map(async listener => {
+            let timeoutId;
             try {
                 const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => {
+                    timeoutId = setTimeout(() => {
                         reject(new Error(`Listener timed out after ${timeout}ms for topic: ${topic}`));
                     }, timeout);
                 });
@@ -146,10 +146,10 @@ export class Pulse {
                     timeoutPromise
                 ]);
             } catch (error) {
-                console.error('Error occurred while processing listener:', error);
-                // Convert unknown error to Error type
                 const errorObj = error instanceof Error ? error : new Error(String(error));
                 event.error(errorObj);
+            } finally {
+                clearTimeout(timeoutId);
             }
         });
 
@@ -256,9 +256,10 @@ export class Pulse {
         regexStr += '$';
         const regex = new RegExp(regexStr);
 
-        // Vérifier la taille du cache avant d'ajouter
+        // Evict oldest entry (FIFO) when cache is full — Map preserves insertion order
         if (this.#patternCache.size >= this.#MAX_CACHE_SIZE) {
-            this.#patternCache.clear();
+            const oldestKey = this.#patternCache.keys().next().value;
+            this.#patternCache.delete(oldestKey);
         }
 
         // Mettre en cache
